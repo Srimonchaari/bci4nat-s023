@@ -1,0 +1,13 @@
+# Only Submission/ and README.md are meant to be pushed to GitHub.
+# Everything else in this repo is local working material.
+
+# Ignore everything at the root by default
+/*
+
+# Re-include what we actually want tracked
+!/Submission
+!/README.md
+!/.gitignore
+
+# OS junk (belt and suspenders, in case Submission/ picks any up)
+.DS_Store
