@@ -17,6 +17,8 @@ Only EEGLAB and BCILAB functions are used for signal processing and classificati
 - **Subject**: S023.
 - **Task**: Task 4 in the original protocol, imagined hand (both fists) vs. imagined foot movement, cued by a target appearing at the top or bottom of a screen.
 - **Recording**: 64-channel EEG, international 10-10 system, BCI2000 acquisition system, 160 Hz sampling rate.
+- **Runs**: 3 concatenated runs of 123 s each (369 s / 6.2 min total), confirmed directly from the recording's own `boundary` event markers.
+- **Trial timing**: 15 trials per run, fixed 8.2 s cue-to-cue spacing throughout, confirmed directly from the event timestamps (not an assumption).
 - **Event markers**: `T0` = rest, `T1` = hand imagery onset, `T2` = foot imagery onset.
 - **File**: `S023_hand_vs_foot.set` / `.fdt` (EEGLAB format).
 
@@ -63,34 +65,34 @@ Only EEGLAB and BCILAB functions are used for signal processing and classificati
 
 ## 📊 Results
 
-### Classification accuracy: why 73.33%
+### Classification accuracy: why 62.22%
 
-- **Overall accuracy: 73.33%** (5-fold cross-validation, mean misclassification rate 0.267) against a theoretical chance level of **51.11%** (the proportion of the larger class, 23 hand vs. 22 foot trials out of 45 total). This is clearly above chance.
-- Chance level is not 50% here because the classes are not perfectly balanced (23 vs. 22), so always guessing the larger class (hand) would already be right 51.11% of the time. 73.33% beats that baseline by over 22 percentage points.
+- **Overall accuracy: 62.22%** (5-fold cross-validation, mean misclassification rate 0.378) against a theoretical chance level of **51.11%** (the proportion of the larger class, 23 hand vs. 22 foot trials out of 45 total). This is above chance, though not by a wide margin.
+- Chance level is not 50% here because the classes are not perfectly balanced (23 vs. 22), so always guessing the larger class (hand) would already be right 51.11% of the time. 62.22% beats that baseline by about 11 percentage points.
+- **A reproducibility note worth being upfront about**: BCILAB's 5-fold cross-validation is documented as seeded by default, but in practice this install was not landing on the same fold split from run to run even with that default seeding active, and even after we added our own explicit `rng()` call in the calling script — the fold assignment kept changing across runs regardless. Rather than continue debugging BCILAB's internal seeding, we now generate the 5-fold split ourselves (seeded `randperm` in `bcilab_pipeline_S023.m`) and pass it into `bci_train` as an explicit list of train/test index pairs, bypassing BCILAB's internal fold-assignment logic entirely. We confirmed this is exactly reproducible: six consecutive full-pipeline reruns produced identical fold indices and an identical confusion matrix every time. 62.22% is that reproducible number, and the one this report uses.
 
 **Pooled confusion matrix** (all 45 trials, one prediction per trial from its held-out fold):
 
 | | Predicted Hand | Predicted Foot |
 |---|---|---|
-| **Actual Hand** (23 trials) | 15 | 8 |
-| **Actual Foot** (22 trials) | 4 | 18 |
+| **Actual Hand** (23 trials) | 13 | 10 |
+| **Actual Foot** (22 trials) | 7 | 15 |
 
-- Hand imagery: 15/23 correctly classified (**65.2%**), 8/23 misclassified as foot.
-- Foot imagery: 18/22 correctly classified (**81.8%**), 4/22 misclassified as hand.
-- The classifier is noticeably better at recognizing foot imagery than hand imagery. This asymmetry comes directly from the confusion matrix above, not from an assumption.
+- Hand imagery: 13/23 correctly classified (**56.5%**), 10/23 misclassified as foot.
+- Foot imagery: 15/22 correctly classified (**68.2%**), 7/22 misclassified as hand.
+- The classifier does somewhat better on foot imagery than hand imagery, but the two are reasonably close together.
 
-**Per-fold breakdown** (5-fold cross-validation, from `Submission/Results&Figures/result_bcilab.csv`):
+**Per-fold breakdown** (5-fold cross-validation, from `Dataset/result_bcilab.csv`):
 
 | Fold | Foot correct | Hand correct | Misclassification rate |
 |---|---|---|---|
-| 1 | 100.0% | 60.0% | 0.222 |
-| 2 | 75.0% | 60.0% | 0.333 |
-| 3 | 100.0% | 80.0% | 0.111 |
-| 4 | 75.0% | 80.0% | 0.222 |
-| 5 | 66.7% | 33.3% | 0.444 |
+| 1 | 60.0% | 100.0% | 0.222 |
+| 2 | 25.0% | 100.0% | 0.333 |
+| 3 | 33.3% | 50.0% | 0.556 |
+| 4 | 83.3% | 66.7% | 0.222 |
+| 5 | 60.0% | 25.0% | 0.556 |
 
-- Accuracy varies a fair amount fold to fold (misclassification rate from 0.111 to 0.444). With only 45 trials, each fold has roughly 9 test trials, so a single wrong prediction shifts a fold's error rate by more than 10 percentage points. Fold 5 is the weakest, both classes did worse there.
-- The classifier's strength on foot imagery holds up across most folds (100%, 75%, 100%, 75%), except fold 5. Hand imagery is more consistently weaker (60%, 60%, 80%, 80%, 33%).
+- Accuracy varies a fair amount fold to fold (misclassification rate from 0.222 to 0.556). With only 45 trials, each fold has roughly 9 test trials, so a single wrong prediction shifts a fold's error rate by more than 10 percentage points. Folds 3 and 5 are the weakest, each with only about a third of the trials of one class correctly classified.
 
 ### EEG signal: does the expected pattern show up?
 
@@ -98,16 +100,27 @@ Only EEGLAB and BCILAB functions are used for signal processing and classificati
 
 *Figure: ERD% (percent power drop relative to a 0.5 s pre-cue baseline) at electrodes C3, Cz, and C4, for hand (blue) vs. foot (red) motor imagery, subject S023. Dotted lines mark the mu (8 to 13 Hz) and beta (13 to 30 Hz) band edges.*
 
-- The clearest difference between conditions is at **Cz**, in the mu band: foot imagery drops to around **54% ERD**, hand imagery only to around **78% ERD**. That is a real, visible gap in the plot above.
+- The clearest difference between conditions is at **Cz**, in the mu band, but not in the direction we expected. Hand imagery shows around **83% ERD** there (a bigger power drop from baseline), foot imagery only around **75% ERD**. A higher ERD% means a stronger drop in power, so hand desynchronises more strongly at the midline than foot does, the opposite of what somatotopic organization would predict for a foot-related signal.
 - C3 and C4 show a smaller, noisier version of the same pattern, with neither condition consistently stronger.
-- This matches the expected layout of motor cortex: the leg/foot representation sits medially (near Cz), the hand representation sits more laterally (near C3/C4), so a stronger foot-related signal at the midline electrode is exactly what somatotopic organisation would predict.
+- We had expected foot imagery to show the stronger midline effect, since the leg/foot representation in motor cortex sits medially (near Cz) while the hand representation sits more laterally (near C3/C4). The data does not support that: this is a genuine miss on the spatial half of our hypothesis, not a partial confirmation.
 
 ![ERD topography comparison](Submission/Results&Figures/S023_topo_comparison.png)
 
 *Figure: Scalp topography of mu-band (8 to 13 Hz) and beta-band (13 to 30 Hz) ERD%, hand vs. foot motor imagery, subject S023. Warmer colors indicate a larger power drop from baseline.*
 
-- The mu-band maps (top row) show a visibly different pattern at the frontal midline region between hand and foot, consistent with the electrode-level Cz result above.
-- The color scale here compresses a fairly narrow range of ERD values, so the topography maps look less dramatic than the C3/Cz/C4 curves suggest, that is a visualization effect, not a contradiction.
+- The mu-band foot map (top right) shows a localized blue/teal dip in ERD% right over the central midline region, a weak point, not a strong point. The hand map (top left) stays strongly desynchronized (yellow) across nearly the whole scalp, including that same midline region.
+- So it is foot imagery that shows a spatially localized weak point at the midline, not a strong one, consistent with the electrode-level Cz result above.
+
+### How the ERD signal changes over time
+
+![Time-resolved ERD at Cz](Submission/Results&Figures/S023_time_resolved_ERD.png)
+
+*Figure: Mu-band (8 to 13 Hz) ERD% at Cz, split into early (0.5-1.5s), mid (1.5-2.5s), and late (2.5-3.5s) sub-windows of the imagery period, hand vs. foot, subject S023.*
+
+- The full-window numbers above are an average over a 3-second period, but the signal is not constant across that period. Splitting it into three sub-windows shows the real time course.
+- **Hand**: ERD% rises from 79.8% (early) to a peak of 88.0% (mid), then falls back to 80.2% (late). Desynchronization builds up and peaks mid-imagery.
+- **Foot**: ERD% starts at 82.1% (early), then drops and stays lower for the rest of the window: 73.5% (mid), 73.7% (late). Foot's effect is strongest right after the cue and fades from there.
+- Neither condition shows a flat, sustained response. This is worth knowing when reading the pooled full-window numbers as a single value; they average over a response that actually changes shape over time.
 
 ### CSP spatial patterns: what the classifier is relying on
 
@@ -121,7 +134,7 @@ Only EEGLAB and BCILAB functions are used for signal processing and classificati
 
 ### What to trust, and what not to over-read
 
-- A second, independent CSP+LDA implementation was written directly in MATLAB (not through BCILAB) as a cross-check on the same cleaned data. It reached a noticeably higher accuracy (around 87%). The gap was traced to a real, understood difference in how the two implementations estimate class covariance matrices (BCILAB pools all trials of a class before computing one covariance matrix, the manual version averages a covariance per trial), not a bug in either one. The BCILAB result (73.33%) is the one that matters here, since that is the required toolbox, but the gap itself shows that "the accuracy" of a small-dataset BCI pipeline depends on implementation choices, not just the data.
+- A second, independent CSP+LDA implementation was written directly in MATLAB (not through BCILAB) as a cross-check on the same cleaned data. It reached a noticeably higher accuracy (around 87%). The gap was traced to a real, understood difference in how the two implementations estimate class covariance matrices (BCILAB pools all trials of a class before computing one covariance matrix, the manual version averages a covariance per trial), not a bug in either one. The BCILAB result (62.22%) is the one that matters here, since that is the required toolbox, but the gap itself shows that "the accuracy" of a small-dataset BCI pipeline depends on implementation choices, not just the data.
 - The absolute ERD% values reported are higher than typical published figures for this kind of task. This was traced to a short 0.5 s pre-cue baseline window, which makes the baseline power estimate noisier and biased upward. The relative difference between hand and foot conditions is still trustworthy (the same bias affects both), but the specific percentages should not be read as directly comparable to studies using longer baseline windows.
 - This is a single-subject result. Nothing here says how well the same pipeline would generalize to a different person.
 
