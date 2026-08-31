@@ -108,10 +108,10 @@ for c = 1:numel(chansOfInterest)
     chanIdx(c) = idx(1);
 end
 
-% Mu-band-averaged ERD% at Cz, pooled over the full imagery window --
-% the number the report text quotes ("around 78%/54%"). Printed here
-% since the report text was originally written by eyeballing the plot
-% and needs an exact, checkable figure instead.
+% Mu-band-averaged ERD% at Cz, pooled over the full imagery window.
+% This is the exact number the report quotes (83.0%/74.8%); printed
+% here so it stays a checkable figure rather than something read off
+% the plot by eye.
 czIdx0 = chanIdx(strcmpi(chansOfInterest, 'Cz'));
 muIdx0 = freqs >= 8 & freqs <= 13;
 fprintf('Full-window mu-band ERD%% at Cz, hand: %.1f %%\n', mean(handERD(czIdx0, muIdx0)));
